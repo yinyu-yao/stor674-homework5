@@ -105,7 +105,7 @@ Before building your Docker image, you will set up version control for your proj
 
 **GitHub Repository URL:**
 
-<!-- Your GitHub repo URL here -->
+https://github.com/yinyu-yao/stor674-homework5
 
 
 **b)** (2 points) Clone the repository to your local machine, add the provided files (`compute_bench.py`, this `Homework5.Rmd`), and make your initial commit. What commands did you use?
@@ -113,11 +113,12 @@ Before building your Docker image, you will set up version control for your proj
 **Answer:**
 
 ```bash
-# Commands you used
-
-
-
-
+git clone https://github.com/yinyu-yao/stor674-homework5.git
+cd stor674-homework5
+copy ..\compute_bench.py .
+copy ..\Homework5.Rmd .
+git add compute_bench.py Homework5.Rmd
+git commit -m "Add compute_bench script and Homework5 Rmd template"
 
 ```
 
@@ -126,15 +127,14 @@ Before building your Docker image, you will set up version control for your proj
 **Answer:**
 
 ```bash
-# Command to create and switch to branch
-
-
+git switch -c docker-build
+git push -u origin docker-build
 ```
 
 **Explanation:**
 
 <!-- Why use a separate branch? -->
-
+I'm using a separate branch so you don’t break main while you experiment with the Dockerfile.
 
 ## Question 2.1: Understanding compute_bench.py (5 points)
 
@@ -142,14 +142,14 @@ Before building your Docker image, you will set up version control for your proj
 
 **Answer:**
 
-<!-- Write your answer here -->
+The script benchmarks how long it takes to generate and process large random tensors on CPU and GPU using PyTorch, and then saves a small random sample to disk. The main purpose is to compare CPU vs GPU performance for a simple vectorized operation in PyTorch and to demonstrate generating and saving random data.
 
 
 **b)** (2 points) What Python packages does `compute_bench.py` require?
 
 **Answer:**
 
-<!-- Write your answer here -->
+'torch' and 'time'.
 
 
 ## Question 2.2: Create a Dockerfile (10 points)
@@ -179,8 +179,20 @@ Create a Dockerfile that:
 
 ```dockerfile
 # Paste your Dockerfile content here
+# CUDA-enabled PyTorch image (Linux base)
+FROM pytorch/pytorch:2.0.0-cuda11.7-cudnn8-runtime
 
+# Set working directory inside the container
+WORKDIR /app
 
+# Copy the benchmark script into the container
+COPY compute_bench.py /app/compute_bench.py
+
+# upgrade pip (no extra packages needed for this script)
+RUN pip install --no-cache-dir --upgrade pip
+
+# run the benchmark
+CMD ["python", "compute_bench.py"]
 
 
 
@@ -200,12 +212,13 @@ Create a Dockerfile that:
 
 ```bash
 # Your command here
-
+docker build -t compute-bench:cuda11.7 .
 ```
 
 **Explanation:**
 
 <!-- Explain each part of your command -->
+'docker build' tells Docker to build an image from the Dockerfile, and '-t compute-bench:cuda11.7' tells the image a name is 'compute-bench' and a tag 'cuda11.7' so we can refer to it later.
 
 
 **b)** (4 points) What command did you use to run your Docker image locally to test it? Include the output you received.
@@ -214,13 +227,24 @@ Create a Dockerfile that:
 
 ```bash
 # Your command here
-
+docker run --rm compute-bench:cuda11.7
 ```
 
 **Output:**
 
 ```
 # Paste the output here
+No GPU available, running on CPU only
+
+CPU Computations:
+Time for 10,000,000 elements: 0.0696 seconds
+Time for 100,000,000 elements: 0.6305 seconds
+
+Small sample of 10 random numbers:
+tensor([-0.1326, -1.5500,  1.1859,  1.5597,  0.7008, -0.4011, -1.1648,  0.1153,
+        -0.3273, -0.3363])
+
+Saved data to mydata.pt
 
 
 ```
@@ -230,7 +254,7 @@ Create a Dockerfile that:
 **Answer:**
 
 <!-- Write your answer here -->
-
+At first, docker wasn’t recognized, so I had to install Docker Desktop. After installation, I got an error that the client couldn’t connect to docker_engine, which I fixed by starting Docker Desktop so the daemon was running. Then the build failed because it couldn’t read Dockerfile; this was due to the Dockerfile not being saved correctly in the project directory. After creating/saving Dockerfile in stor674-homework5 with the correct name, the image built successfully and docker run produced the expected output.
 
 ## Question 2.4: Version Control Your Docker Build (10 points)
 
@@ -253,9 +277,8 @@ Now that you have a working Dockerfile, let's commit it and merge it into the ma
 
 ```bash
 # Commands to switch branch and merge
-
-
-
+git add Dockerfile
+git commit -m "Add CUDA-enabled Dockerfile for compute_bench benchmark"
 
 ```
 
@@ -263,7 +286,11 @@ Now that you have a working Dockerfile, let's commit it and merge it into the ma
 
 ```
 # Paste merge output here
-
+Updating 5efd643..1c3b52a
+Fast-forward
+ Dockerfile | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+ create mode 100644 Dockerfile
 
 ```
 
@@ -273,7 +300,7 @@ Now that you have a working Dockerfile, let's commit it and merge it into the ma
 
 ```bash
 # Command to push to GitHub
-
+git push origin main
 
 ```
 
@@ -287,7 +314,7 @@ Now that you have a working Dockerfile, let's commit it and merge it into the ma
 **Docker Hub Username:**
 
 <!-- Your username here -->
-
+yinyuyao
 
 **b)** (4 points) Tag your image appropriately and push it to Docker Hub. What commands did you use?
 
@@ -295,7 +322,10 @@ Now that you have a working Dockerfile, let's commit it and merge it into the ma
 
 ```bash
 # Commands you used
+docker tag compute-bench:cuda11.7 yinyuyao/compute-bench:cuda11.7
 
+docker login
+docker push yinyuyao/compute-bench:cuda11.7
 
 
 
@@ -307,7 +337,7 @@ Now that you have a working Dockerfile, let's commit it and merge it into the ma
 
 ```
 # Format: username/imagename:tag
-
+yinyuyao/compute-bench:cuda11.7
 ```
 
 ---
@@ -323,14 +353,14 @@ In this section, you will download your Docker image using Apptainer on UNC's Lo
 **Answer:**
 
 <!-- Write your answer here -->
-
+Apptainer is a container runtime designed specifically for HPC clusters. It lets you run container images, including Docker images, as a regular user, without needing a root‑privileged daemon.HPC centers use Apptainer instead of Docker because: Docker requires a long‑running root 'dockerd', which is a security risk on shared multi‑user systems, and Apptainer runs containers with my normal user ID, integrates cleanly with shared filesystems and schedulers such as SLURM, and doesn’t need privileged services. So Apptainer gives most of the benefits of Docker images, in a security model HPC admins will actually allow.
 
 **b)** (2 points) What does "Bring Your Own Environment" (BYOE) mean in the context of HPC and containers?
 
 **Answer:**
 
 <!-- Write your answer here -->
-
+“Bring Your Own Environment” means you package your entire software stack in a container image and bring that image to the cluster. On Longleaf, you can build the environment with Docker on your laptop, then run the same environment via Apptainer. The cluster just provides CPU/GPU and file systems; you provide a self‑contained, consistent runtime. That makes jobs reproducible regardless of which node or system runs them.
 
 ## Question 3.2: Convert Docker Image to Apptainer (10 points)
 
@@ -340,8 +370,11 @@ In this section, you will download your Docker image using Apptainer on UNC's Lo
 
 ```bash
 # Command to pull/convert Docker image to Apptainer
-
-
+ssh yinyuyao@longleaf.unc.edu
+git clone https://github.com/yinyu-yao/stor674-homework5.git
+cd stor674-homework5
+module load apptainer
+apptainer pull compute-bench.sif docker://yinyuyao/compute-bench:cuda11.7
 ```
 
 **b)** (3 points) What is the name of the Apptainer image file (.sif) that was created?
@@ -350,7 +383,7 @@ In this section, you will download your Docker image using Apptainer on UNC's Lo
 
 ```
 # Filename here
-
+compute-bench.sif
 ```
 
 **c)** (2 points) Test your Apptainer image interactively. What command did you use to run it?
@@ -360,7 +393,7 @@ In this section, you will download your Docker image using Apptainer on UNC's Lo
 ```bash
 # Command to run Apptainer image
 
-
+apptainer run compute-bench.sif
 ```
 
 ## Question 3.3: Create Slurm Job Script (12 points)
@@ -380,18 +413,37 @@ Create a Slurm job script that runs your containerized `compute_bench.py` using 
 4. Run the Apptainer container
 
 **Your Slurm Script:**
-
+I first created 'run_compute_bench.sh' by using command 'nano run_compute_bench.sh'.
 ```bash
 #!/bin/bash
 
 # Paste your Slurm script here
+#!/bin/bash
 
+#SBATCH --job-name=compute_bench
+#SBATCH --output=compute_bench_%j.out
+#SBATCH --error=compute_bench_%j.err
+#SBATCH -n 1
+#SBATCH --cpus-per-task=12
+#SBATCH --mem=20g
+#SBATCH -t 02:00:00
+#SBATCH -p a100-gpu
+#SBATCH --qos=gpu_access
+#SBATCH --gres=gpu:1
 
+module purge
+module load apptainer
 
+echo "Job started on $(date)"
+echo "Running on host: $(hostname)"
+echo "Working directory: $(pwd)"
 
+SIF_IMAGE="$PWD/compute-bench.sif"
 
+# Run the container with GPU support exposed
+apptainer run --nv "$SIF_IMAGE"
 
-
+echo "Job finished on $(date)"
 
 
 ```
@@ -409,7 +461,7 @@ Create a Slurm job script that runs your containerized `compute_bench.py` using 
 
 ```bash
 # Command here
-
+sbatch run_compute_bench.sh
 ```
 
 **b)** (2 points) Provide the output of your job. Paste the contents of your Slurm output file (e.g., `slurm-jobid.out`). Also, add your Slurm script (`run_compute_bench.sh`) to your GitHub repository and push it.
@@ -418,12 +470,25 @@ Create a Slurm job script that runs your containerized `compute_bench.py` using 
 
 ```
 # Paste your job output here
+Job started on Fri Nov 28 07:50:51 PM EST 2025
+Running on host: g0302.ll.unc.edu
+Working directory: /nas/longleaf/home/yinyuyao/stor674-homework5
+GPU available: Tesla V100-SXM2-16GB
 
+CPU Computations:
+Time for 10,000,000 elements: 0.2309 seconds
+Time for 100,000,000 elements: 1.6072 seconds
 
+GPU Computations:
+Time for 10,000,000 elements: 5.2654 seconds
+Time for 100,000,000 elements: 0.0025 seconds
 
+Small sample of 10 random numbers:
+tensor([ 0.3367,  0.1288,  0.2345,  0.2303, -1.1229, -0.1863,  2.2082, -0.6380,
+         0.4617,  0.2674])
 
-
-
+Saved data to mydata.pt
+Job finished on Fri Nov 28 07:51:05 PM EST 2025
 
 
 ```
@@ -431,7 +496,7 @@ Create a Slurm job script that runs your containerized `compute_bench.py` using 
 **GitHub Verification:** ✓ Pushed `run_compute_bench.sh` to repository
 
 **c)** (BONUS: +2 points) Include a screenshot showing your job in the Slurm queue or completed job information using `squeue` or `sacct`. Also show that your job successfully utilized a GPU (if you requested one).
-
+![Slurm GPU job and GPU usage](image.png)
 ---
 
 # Part 4: Reflection and Best Practices (Optional - Extra Credit: 5 points)
@@ -441,7 +506,7 @@ Create a Slurm job script that runs your containerized `compute_bench.py` using 
 **Answer:**
 
 <!-- Write your answer here -->
-
+The Git → Docker → HPC workflow improves reproducibility by version-controlling both the code and the environment, then running that exact environment on the cluster. Git records every change to the benchmark script, Dockerfile, and Slurm script, so I can always go back to the commit that produced a given result. Docker turns that commit into a fixed Linux image with a specific Python, PyTorch, and CUDA stack, and Apptainer lets Longleaf run that image safely without root, while Slurm documents how many CPUs/GPUs and how much memory the job used. This approach makes it much easier for me or someone else to rerun the same experiment later or on a different machine, but it also adds overhead: I had to debug Docker installation, Apptainer pulls, partition/QOS settings, and Slurm queue behavior just to run a simple benchmark. In practice, the workflow trades some initial complexity for much stronger guarantees that computational results are portable, auditable, and repeatable.
 
 ---
 
@@ -449,18 +514,18 @@ Create a Slurm job script that runs your containerized `compute_bench.py` using 
 
 Before submitting, make sure you have:
 
-- [ ] Completed all questions in Part 1 (Git/GitHub concepts)
-- [ ] **Created a GitHub repository with all your project files**
-- [ ] **Practiced branching and merging in your Git workflow**
-- [ ] Created a Dockerfile with CUDA support for GPU computing
-- [ ] Built and tested your Docker image locally (Linux container on macOS/Windows)
-- [ ] Pushed your image to Docker Hub
-- [ ] Provided your Docker Hub image URL
-- [ ] Created a Slurm job script
-- [ ] Successfully ran your job on Longleaf
-- [ ] **Pushed all files (Dockerfile, Slurm script, completed Rmd) to GitHub**
-- [ ] Included all output and screenshots
-- [ ] Compiled this Rmd file to HTML or PDF
+- [✓] Completed all questions in Part 1 (Git/GitHub concepts)
+- [✓] **Created a GitHub repository with all your project files**
+- [✓] **Practiced branching and merging in your Git workflow**
+- [✓] Created a Dockerfile with CUDA support for GPU computing
+- [✓] Built and tested your Docker image locally (Linux container on macOS/Windows)
+- [✓] Pushed your image to Docker Hub
+- [✓] Provided your Docker Hub image URL
+- [✓] Created a Slurm job script
+- [✓] Successfully ran your job on Longleaf
+- [✓] **Pushed all files (Dockerfile, Slurm script, completed Rmd) to GitHub**
+- [✓] Included all output and screenshots
+- [✓] Compiled this Rmd file to HTML or PDF
 
 **Submission Instructions:**
 
